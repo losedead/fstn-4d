@@ -5,7 +5,7 @@ V1 auto_loader 的 V3 版本。Hermes Agent 每轮对话前调用 analyze()，
 获得情绪指导并融入思考过程。
 
 用法（与 V1 相同）：
-    import sys; sys.path.insert(0, r'C:\\Users\\33196\\Desktop\\fstn_enhancement\\v3')
+    import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'v3'))
     from auto_loader_v3 import analyze
     guidance = analyze(USER_MESSAGE)
 """
