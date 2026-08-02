@@ -115,7 +115,10 @@ class EnhancedEmotionDetector:
         self.HIGH_SIGNAL_COMPLEX = {
             "内疚": "guilt", "惭愧": "guilt", "抱歉": "guilt", "对不起": "guilt",
             "谢谢": "gratitude", "感谢": "gratitude", "感激": "gratitude", "感恩": "gratitude",
-            "嫉妒": "jealousy", "眼红": "jealousy",
+            "嫉妒": "jealousy", "眼红": "jealousy", "不是滋味": "jealousy",
+            "明明": "jealousy", "凭什么": "jealousy", "不服": "jealousy",
+            "说错话": "shame", "丢脸": "shame", "出丑": "shame", "没面子": "shame",
+            "丢人": "shame", "社死": "shame", "尴尬癌": "shame",
             "舍不得": "nostalgia", "遗憾": "nostalgia",
         }
         # 高信号词的基础强度（需保证 guilt=0.6*S > 0.35 阈值 → S ≥ 0.59）
@@ -195,20 +198,21 @@ class EnhancedEmotionDetector:
         高信号词显式注入复杂情绪。
         v1 _detect_complex 要求 ≥2 个基础情绪非零；但"好内疚"只有 sadness 一个
         维度。高信号词（内疚/谢谢/嫉妒…）语义上直接对应复杂情绪，命中即注入。
-        若 v1 已识别出复杂情绪，则保留 v1 结果（避免覆盖更精确的判断）。
-        """
-        if base_complex and base_complex.get("emotion"):
-            return base_complex
 
-        # 找到命中的最高优先级高信号词
+        修正（v4）：高信号词命中时**优先于** v1 配方结果——因为配方打分可能被
+        泛化词（如"高兴"）带偏（例：嫉妒句中的"为他高兴"会让 v1 误判为
+        gratitude）。高信号词是强语义信号，应覆盖 v1 的弱配方判断。
+        """
         for word, complex_name in self.HIGH_SIGNAL_COMPLEX.items():
             if word in text:
                 # 构造与 v1 _detect_complex 相同结构的返回
                 return {
                     "emotion": complex_name,
                     "intensity": round(max(vector.values()) if vector else 0.3, 3),
-                    "candidates": [{"name": complex_name}],
+                    "candidates": [{"name": complex_name, "high_signal": word}],
                 }
+        if base_complex and base_complex.get("emotion"):
+            return base_complex
         return None
 
     def _apply_negation(self, text: str,
@@ -225,6 +229,13 @@ class EnhancedEmotionDetector:
         for neg in NEGATION_WORDS:
             pos = text.find(neg)
             while pos != -1:
+                # 前导字符特判：避免把「特别/不太/真不」等程度副词误判为否定
+                # 例：「特别烦」的「别」不是否定词，「别烦我」的「别」才是
+                if pos > 0:
+                    prev = text[pos - 1]
+                    if neg in ("别", "不") and prev in ("特", "太", "真", "挺", "好", "就", "也"):
+                        pos = text.find(neg, pos + len(neg))
+                        continue
                 zone = text[pos:pos + len(neg) + NEGATION_RADIUS]
                 for emotion, words in self._emotion_root_words.items():
                     for w in words:
@@ -307,7 +318,13 @@ class EnhancedEmotionDetector:
     # ── 透传 v1 API（保持引擎兼容） ────────────────────────
 
     def get_current(self, now=None):
-        return self.base.get_current(now)
+        result = self.base.get_current(now)
+        # v4: 附加最近一次检测的复杂情绪（供 emotional_modulation 等下游使用）
+        if self.base.history:
+            last_complex = self.base.history[-1].get("complex")
+            if last_complex:
+                result["complex_emotion"] = last_complex
+        return result
 
     def reset(self):
         self.base.reset()

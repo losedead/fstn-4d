@@ -8,7 +8,7 @@ FSTN-4D Hermes 自动加载器
 import sys
 import os
 
-ENGINE_PATH = os.path.expanduser(r'~\Desktop\fstn_enhancement\engine')
+ENGINE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, ENGINE_PATH)
 
 

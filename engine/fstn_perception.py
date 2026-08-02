@@ -261,17 +261,17 @@ class PerceptualStateMachine:
         self._apply_natural_decay()
         updates = {}
 
-        # 体感
+        # 体感（文档 §5.2 伪代码 + §2.4.1 示例：热=负舒适，冷=正舒适）
         if any(kw in utterance for kw in self.PERCEPTION_KEYWORDS["thermal"]["hot"]):
-            self.state.thermal_comfort = 0.7
+            self.state.thermal_comfort = -0.7
             self.state.sweating = True
             self.state.shivering = False
-            updates["thermal"] = {"thermal_comfort": 0.7, "sweating": True}
+            updates["thermal"] = {"thermal_comfort": -0.7, "sweating": True}
         elif any(kw in utterance for kw in self.PERCEPTION_KEYWORDS["thermal"]["cold"]):
-            self.state.thermal_comfort = -0.7
+            self.state.thermal_comfort = 0.7
             self.state.sweating = False
             self.state.shivering = True
-            updates["thermal"] = {"thermal_comfort": -0.7, "shivering": True}
+            updates["thermal"] = {"thermal_comfort": 0.7, "shivering": True}
         elif any(kw in utterance for kw in self.PERCEPTION_KEYWORDS["thermal"]["comfort"]):
             self.state.thermal_comfort = 0.0
             self.state.sweating = False
@@ -374,10 +374,10 @@ class PerceptualStateMachine:
         """
         active = []
         s = self.state
-        # 体感
-        if s.thermal_comfort > 0.5:
+        # 体感（热=负舒适，冷=正舒适，与 update_from_utterance 一致）
+        if s.thermal_comfort < -0.5:
             active.append(("thermal", "too_hot"))
-        elif s.thermal_comfort < -0.5:
+        elif s.thermal_comfort > 0.5:
             active.append(("thermal", "too_cold"))
         elif abs(s.thermal_comfort) < 0.2:
             active.append(("thermal", "comfortable"))
@@ -421,11 +421,11 @@ class PerceptualStateMachine:
         delta = {e: 0.0 for e in ["anger", "disgust", "fear", "joy", "sadness", "surprise"]}
         triggered = []
 
-        # 体感
-        if self.state.thermal_comfort > 0.5:
+        # 体感（热=负舒适，冷=正舒适）
+        if self.state.thermal_comfort < -0.5:
             self._apply_delta(delta, self.COUPLING_RULES[("thermal", "too_hot")])
             triggered.append("thermal:too_hot")
-        elif self.state.thermal_comfort < -0.5:
+        elif self.state.thermal_comfort > 0.5:
             self._apply_delta(delta, self.COUPLING_RULES[("thermal", "too_cold")])
             triggered.append("thermal:too_cold")
         elif abs(self.state.thermal_comfort) < 0.2:

@@ -335,11 +335,11 @@ class FibonacciMemoryEngine:
             intensity = max(curr_vec.values()) if curr_vec else 0
             consistency_boost = 1.0 + 0.4 * intensity
 
-        # 效价极性抑制（简化版）
+        # 效价极性抑制（与 _compute_valence 实际范围匹配：6 维除以 2.5 → ±0.36）
         mem_valence = self._compute_valence(mem_vec)
         curr_valence = current_emotion.get("valence", 0.0)
         opposition_penalty = 1.0
-        if abs(mem_valence - curr_valence) > 1.2:
+        if abs(mem_valence - curr_valence) > 0.4:
             opposition_penalty = 1.0 - 0.25 * abs(curr_valence)
 
         # 唤醒度模糊
@@ -359,6 +359,30 @@ class FibonacciMemoryEngine:
         if curr_vec.get("sadness", 0) > 0.6:
             if "social_support" in (mem.emotional_tags or []):
                 specific_mod *= 1.4
+
+        # 羞愧特异性调制（文档 §2.2.6D：Shame > 0.5 → 自我暴露抑制）
+        # 优先用检测器已识别的复杂情绪（高信号词感知，更准），
+        # 否则从当前情绪向量用配方点积推导
+        complex_emotion = current_emotion.get("complex_emotion")
+        if not complex_emotion:
+            try:
+                from fstn_emotion import EmotionalStateMachine as _ESM
+                recipes = _ESM.COMPLEX_EMOTIONS
+                best_name, best_score = None, 0.0
+                for name, recipe in recipes.items():
+                    score = sum(curr_vec.get(e, 0) * w for e, w in recipe.items())
+                    if score > best_score and score > 0.4:
+                        best_score, best_name = score, name
+                if best_name:
+                    complex_emotion = {"emotion": best_name, "intensity": best_score}
+            except Exception:
+                complex_emotion = None
+        if complex_emotion and complex_emotion.get("emotion") == "shame":
+            if "self_exposure" in (mem.emotional_tags or []):
+                specific_mod *= 0.3
+            # 修复类记忆获得加成
+            if "repair" in (mem.emotional_tags or []):
+                specific_mod *= 1.5
 
         return base_relevance * consistency_boost * opposition_penalty * intensity_blur * specific_mod
 

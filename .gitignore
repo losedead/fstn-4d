@@ -11,7 +11,31 @@ venv/
 
 # 引擎状态（本地运行数据，不入库）
 .fstn_engine/
+.fstn_mcp_state/
 *.json.state
+*.state
+
+# 本地推送脚本（含绝对路径，不入库）
+.push_retry.sh
+
+# 训练产物（LoRA adapter 数百 MB + checkpoint）
+engine/fstn_lora_out/
+engine/fstn_dpo_out/
+engine/smoke_lora_out/
+engine/*/checkpoint-*/
+*.safetensors
+*.bin
+
+# 本地测试/评估报告（含本机路径与运行数据）
+engine/model_test_report.json
+engine/benchmark_report_v4.json
+engine/qwen35_9b_probe.json
+engine/FINETUNE_REPORT.md
+benchmark_report.json
+bench/report.md
+
+# 训练数据统计（可能含用户场景上下文）
+engine/training_data/*_stats.json
 
 # IDE / 系统
 .vscode/

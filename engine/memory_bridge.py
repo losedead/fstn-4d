@@ -128,7 +128,7 @@ class MemoryBridge:
         return """
 # FSTN-4D Auto-Init
 import sys, os
-sys.path.insert(0, os.path.expanduser('~/Desktop/fstn_enhancement/engine'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fstn_core import FSTN4DEngine
 
 # 全局单例（同一 execute_code 调用内有效）

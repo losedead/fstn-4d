@@ -1,0 +1,32 @@
+{
+  "pairs": 400,
+  "rule_hits": {
+    "basic_emotion_correct": 36,
+    "surprise_reset": 16,
+    "complex_emotion_correct": 48,
+    "shame_no_judgment": 12,
+    "empathy_mirror": 12,
+    "reviewed_after_use": 22,
+    "sadness_comfort_food": 12,
+    "mixed_emotion_balanced": 24,
+    "joy_override_candy": 6,
+    "perceptual_retrieved": 100,
+    "perception_direct_ok": 5,
+    "perceptual_tagged": 10,
+    "perception_emotion_chain": 10,
+    "coupling_computed": 45,
+    "reverse_modulation_ok": 10,
+    "synesthesia_linked": 20,
+    "cross_modal_ok": 10,
+    "wormhole_created": 60,
+    "keynode_default_effect": 30,
+    "crystallized_calm": 10,
+    "add_version_on_conflict": 30,
+    "wormhole_cross_domain": 30,
+    "perception_tracked": 30,
+    "NEG:used_without_review": 142,
+    "NEG:no_perceptual_tag": 95,
+    "NEG:no_wormhole_when_expected": 10
+  },
+  "avg_chosen_rewards": 1.47
+}

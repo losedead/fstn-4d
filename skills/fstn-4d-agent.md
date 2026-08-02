@@ -260,7 +260,7 @@ _guidance = _engine.generate_reply_guidance()
 
 ## Hermes 集成参考
 
-此 Skill 的 Python 引擎位于 `~/Desktop/fstn_enhancement/engine/`：
+此 Skill 的 Python 引擎位于 `./engine/`（与本 Skill 同目录）：
 - `fstn_emotion.py` — 情绪状态机
 - `fstn_memory.py` — 斐波那契记忆引擎
 - `fstn_perception.py` — 感知状态机
