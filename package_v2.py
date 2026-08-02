@@ -5,8 +5,12 @@
 import os
 import zipfile
 
-BASE = r"C:\Users\33196\Desktop\fstn_enhancement"
-OUT = r"C:\Users\33196\Desktop\fstn_4d_v2_enhancement.zip"
+import os
+
+# 相对于脚本所在目录，而非硬编码的绝对路径
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE = SCRIPT_DIR  # fstn_enhancement 根目录
+OUT = os.path.join(os.path.dirname(SCRIPT_DIR), "fstn_4d_v2_enhancement.zip")
 
 FILES = [
     # 新增 v2 模块
