@@ -17,7 +17,7 @@ pinned: false
 加载此 Skill 时，运行以下 Python 代码初始化引擎：
 
 ```python
-import sys; sys.path.insert(0, r'C:\Users\33196\Desktop\fstn_enhancement\engine')
+import sys; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'engine'))
 from fstn_core import FSTN4DEngine
 _engine = FSTN4DEngine()
 _engine.load_state()
