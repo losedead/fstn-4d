@@ -1,0 +1,25 @@
+{
+  "A_emotion": {
+    "total": 16,
+    "v1_pass": 5,
+    "v2_pass": 16,
+    "v1_accuracy": 0.3125,
+    "v2_accuracy": 1.0
+  },
+  "B_retrieval": {
+    "total": 8,
+    "v1_hits": 6,
+    "v2_hits": 8,
+    "v1_recall": 0.75,
+    "v2_recall": 1.0,
+    "provider": "local:tfidf-jieba"
+  },
+  "C_coupling": {
+    "static_coef": 0.4,
+    "learned_coef": 0.8,
+    "mae_static": 0.42666666666666675,
+    "mae_learned": 0.30666666666666664,
+    "improvement_pct": 28.12500000000002,
+    "total_updates": 60
+  }
+}
