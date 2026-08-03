@@ -109,13 +109,20 @@ class FSTN4DEngineV5(FSTN4DEngineV4):
     def self_learn(self, task_text: str, strategy_id: str, reward: float,
                    user_key: str = "", traits: dict = None,
                    task_tags=None, note: str = "",
-                   sync_perception: bool = False) -> dict:
+                   sync_perception: bool = False,
+                   recorded_emotion: dict = None,
+                   emotional_tags: list = None,
+                   perceptual_signature: dict = None,
+                   layer: str = "episodic") -> dict:
         """记录反馈 → 自我学习。
 
         默认【不】用任务文本污染用户状态——任务文本的情绪检测
         是"任务的情绪"不是"用户的情绪"，混入会导致学习失真
         （实测 bug：任务文本触发 anger 让所有任务路由偏向同一策略）。
         需要同步感知时显式传 sync_perception=True。
+
+        recorded_emotion/emotional_tags/perceptual_signature：
+        4D 存储机制——经验记忆附带情绪/感知指纹（协议一：存储即关联）。
         """
         if sync_perception:
             self.process_utterance(task_text)
@@ -123,7 +130,11 @@ class FSTN4DEngineV5(FSTN4DEngineV4):
         return self.self_core.record_feedback(
             task_text, strategy_id, reward,
             user=uv, user_key=user_key, task_tags=task_tags,
-            feedback_note=note)
+            feedback_note=note,
+            recorded_emotion=recorded_emotion,
+            emotional_tags=emotional_tags,
+            perceptual_signature=perceptual_signature,
+            layer=layer)
 
     def self_evolve(self, parents=None, use_llm: bool = False,
                     domain: str = None, count: int = 2,

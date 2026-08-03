@@ -14,6 +14,10 @@ venv/
 .fstn_mcp_state/
 *.json.state
 *.state
+# 日常嵌入运行状态（auto_loader v2 生成的用户学习状态，含真实画像）
+.fstn_hermes_state/
+.fstn5_state/
+fstn_hermes_state.json
 
 # 本地推送脚本（含绝对路径，不入库）
 .push_retry.sh
