@@ -98,6 +98,11 @@ class FSTN5Core:
         result["experience_confidence"] = (
             exp_best.get("confidence", 0.0) if exp_best else 0.0)
 
+        # 4D 协议二：使用后触发复习——相似经验被使用，心理时间刷新
+        if exp_best and exp_best.get("n", 0) > 0:
+            hits = self.memory.query(task_text, user_vec, k=5)
+            self.memory.review([e.id for e in hits], gamma=0.7)
+
         strategies = self.library.active(domain)
         if exclude:
             strategies = [s for s in strategies if s.id not in exclude]
@@ -182,12 +187,17 @@ class FSTN5Core:
                         user: Optional[UserVector] = None,
                         user_key: str = "",
                         task_tags: Optional[List[str]] = None,
-                        feedback_note: str = "") -> dict:
+                        feedback_note: str = "",
+                        recorded_emotion: Optional[Dict[str, float]] = None,
+                        emotional_tags: Optional[List[str]] = None,
+                        perceptual_signature: Optional[Dict] = None,
+                        layer: str = "episodic") -> dict:
         """记录一次任务结果反馈 → 更新学习权重。
 
         reward ∈ [-1, 1]：正 = 策略有效，负 = 无效。
         strategy_id 可传 id 或策略名（工业 API 友好）。
-        这是"自我学习"的入口。
+
+        4D 存储机制：可附带记录情绪/感知指纹/分层（协议一：存储即关联）。
         """
         sid = self._resolve_strategy(strategy_id)
         if sid is None:
@@ -198,7 +208,10 @@ class FSTN5Core:
             reward=reward,
             user_vector=user.to_vector() if user else {},
             task_tags=task_tags or [], feedback_note=feedback_note)
-        self.memory.add(exp)
+        self.memory.add(exp, layer=layer,
+                        recorded_emotion=recorded_emotion,
+                        emotional_tags=emotional_tags,
+                        perceptual_signature=perceptual_signature)
         self.library.record_trial(sid, reward, user_key=user_key)
         # 上下文 Bandit 学习：特征 → 奖励
         if self.contextual:

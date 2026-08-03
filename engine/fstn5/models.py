@@ -53,6 +53,14 @@ class Experience:
 
     这是引擎"自我学习"的最小单元——记住了什么策略在什么任务上
     对什么用户产生了什么结果。
+
+    v2（4D 存储机制回归）：扩展为完整记忆条目——
+    - 分层（layer）：episodic/semantic/subconscious
+    - 情绪（recorded_emotion）：存储时记录的用户情绪状态
+    - 感知指纹（perceptual_signature）：五感标注（4D 协议一）
+    - 心理时间（t_psych）：复习更新，驱动斐波那契遗忘窗口
+    - 复习统计（review_count/review_count_30d/avg_gamma）：结晶条件
+    - 虫洞关联：记忆之间的语义虫洞
     """
     task_text: str                 # 任务描述（人类可读）
     strategy_id: str               # 使用的策略
@@ -62,6 +70,29 @@ class Experience:
     feedback_note: str = ""
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     timestamp: float = field(default_factory=time.time)
+    # ── 4D 存储机制字段 ──
+    layer: str = "episodic"        # episodic | semantic | subconscious
+    recorded_emotion: Dict[str, float] = field(default_factory=dict)  # 六维情绪向量
+    emotional_tags: List[str] = field(default_factory=list)
+    perceptual_signature: Dict = field(default_factory=dict)     # 五感感知指纹
+    keywords: List[str] = field(default_factory=list)            # 提取的关键词
+    t_psych: float = field(default_factory=time.time)            # 心理时间
+    review_count: int = 0
+    review_count_30d: int = 0
+    avg_gamma: float = 0.0
+    crystallized_to: Optional[str] = None   # 结晶到的关键节点 id
+    frozen: bool = False                    # 冻结（不可复习/遗忘）
+    confidence: float = 1.0
+
+    @property
+    def age(self) -> float:
+        return time.time() - self.t_psych
+
+    @property
+    def window(self) -> int:
+        """所属斐波那契窗口（0=新生，越大越旧）"""
+        from .memory_engine import find_window
+        return find_window(self.age)
 
     def to_dict(self) -> dict:
         return asdict(self)
