@@ -32,6 +32,8 @@ class Strategy:
     trials: int = 0                  # 尝试次数
     status: str = STRATEGY_ACTIVE
     parent_id: Optional[str] = None  # 演化来源（谱系）
+    rationale: str = ""              # 生成理由（LLM 演化时记录，可解释性）
+    origin: str = "manual"           # manual / llm / rule
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     created_at: float = field(default_factory=time.time)
     last_trial_at: float = field(default_factory=time.time)

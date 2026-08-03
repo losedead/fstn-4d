@@ -86,6 +86,8 @@ class BanditLearner:
                 "name": s.name,
                 "domain": s.domain,
                 "status": s.status,
+                "origin": s.origin,
+                "rationale": s.rationale,
                 "reward_ema": round(s.reward_ema, 4),
                 "trials": s.trials,
                 "weight": round(

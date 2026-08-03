@@ -125,8 +125,17 @@ class FSTN4DEngineV5(FSTN4DEngineV4):
             user=uv, user_key=user_key, task_tags=task_tags,
             feedback_note=note)
 
-    def self_evolve(self, parents=None) -> list:
-        """自我创新：生成新策略变体"""
+    def self_evolve(self, parents=None, use_llm: bool = False,
+                    domain: str = None, count: int = 2,
+                    client=None) -> list:
+        """自我创新：生成新策略变体。
+
+        use_llm=True 时用 LLM 基于策略池+经验+失败案例生成【全新思路】
+        策略（真创新）；False 时用规则变异（复制+参数，零依赖）。
+        """
+        if use_llm:
+            return self.self_core.evolve_with_llm(
+                domain=domain, count=count, client=client)
         return self.self_core.evolve(parents)
 
     def self_prune(self, min_trials: int = 10, parent_ratio: float = 0.7) -> int:

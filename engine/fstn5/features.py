@@ -1,0 +1,144 @@
+# -*- coding: utf-8 -*-
+"""
+fstn5/features.py — 任务/用户特征提取（深度 Bandit 的输入）
+
+把任务文本和用户状态编码成稠密特征向量，供 LinUCB 使用。
+
+可插拔后端：
+1. TF-IDF 本地（零依赖，中文字 bigram）——默认
+2. bge-m3 embedding（Ollama 本地，语义最强）——可选
+3. 词袋 + 标签（最快）
+
+这是"深度上下文 Bandit"的第一层：手写相似度 → 学习表征。
+"""
+
+import math
+import re
+from collections import Counter
+from typing import Dict, List, Optional
+
+
+def _tokenize_cn(text: str) -> List[str]:
+    """中文切词：字 bigram + 数字归一化 + 单位保留（零依赖近似分词）
+
+    数字归一化是关键：'10GB'/'120GB'/'30GB' 都映射到 '<NUM>gb'，
+    让 LinUCB 能外推——学到的 '大数字+gb → 流式' 泛化到未见任务
+    （实测：不归一化时 '30GB日志' 是新 token，线性模型预测失效）。
+    """
+    text = text.lower()
+    tokens = []
+    # 数字+单位 token（归一化数字）：30gb / 100mb / 90gb → <NUM>gb
+    for m in re.finditer(r"[0-9]+([a-z]+)", text):
+        tokens.append(f"<NUM>{m.group(1)}")
+    # 纯数字
+    for m in re.finditer(r"[0-9]+", text):
+        tokens.append("<NUM>")
+    # 英文词（无数字）
+    for m in re.finditer(r"[a-z]+", text):
+        tokens.append(m.group())
+    # 中文 bigram
+    cn = re.sub(r"[^\u4e00-\u9fff]", "", text)
+    for i in range(len(cn) - 1):
+        tokens.append(cn[i:i + 2])
+    if cn:
+        tokens.append(cn)
+    return tokens
+
+
+class FeatureExtractor:
+    """任务特征提取：文本 + 标签 → 稠密向量
+
+    mode:
+      'bow'    — 词袋（字 bigram 计数，快）
+      'tfidf'  — TF-IDF 加权（默认，区分度好）
+      'bge'    — bge-m3 embedding（需 Ollama，语义最强）
+    """
+
+    def __init__(self, mode: str = "tfidf", dim: int = 64,
+                 bge_url: str = None):
+        self.mode = mode
+        self.dim = dim                      # bow/tfidf 的向量维度（hash 桶数）
+        self.bge_url = bge_url or "http://localhost:11434"
+        self._vocab: Counter = Counter()    # token -> 出现文档数
+        self._doc_count = 0
+        self._trained = False
+
+    # ── 训练（增量收集词频）──
+    def observe(self, texts: List[str]) -> None:
+        """收集文本，更新词频统计（TF-IDF 需要）。"""
+        for t in texts:
+            self._doc_count += 1
+            seen = set(_tokenize_cn(t))
+            for tok in seen:
+                self._vocab[tok] += 1
+        self._trained = self._doc_count > 0
+
+    # ── 编码 ──
+    def encode(self, text: str, tags: Optional[List[str]] = None) -> List[float]:
+        """文本+标签 → 稠密特征向量（长度 dim + tag 数 * 2）"""
+        if self.mode == "bge":
+            vec = self._encode_bge(text)
+        elif self.mode == "tfidf":
+            vec = self._encode_tfidf(text)
+        else:
+            vec = self._encode_bow(text)
+        # 标签编码（追加：每个 tag 两个槽——存在性 + 简单哈希）
+        tags = tags or []
+        tag_vec = []
+        for t in tags:
+            h = abs(hash(t)) % (self.dim // 4)
+            tag_vec.extend([1.0, float(h) / (self.dim // 4)])
+        return vec + tag_vec
+
+    def _encode_bow(self, text: str) -> List[float]:
+        vec = [0.0] * self.dim
+        for tok in _tokenize_cn(text):
+            vec[abs(hash(tok)) % self.dim] += 1.0
+        return vec
+
+    def _encode_tfidf(self, text: str) -> List[float]:
+        vec = [0.0] * self.dim
+        counts = Counter(_tokenize_cn(text))
+        for tok, c in counts.items():
+            df = self._vocab.get(tok, 1)
+            idf = math.log(1 + self._doc_count / max(1, df))
+            vec[abs(hash(tok)) % self.dim] += c * idf
+        # L2 归一化（余弦友好）
+        n = math.sqrt(sum(x * x for x in vec))
+        if n > 0:
+            vec = [x / n for x in vec]
+        return vec
+
+    def _encode_bge(self, text: str) -> List[float]:
+        """调 Ollama bge-m3 embedding（128 维）"""
+        import json
+        import urllib.request
+        payload = {"model": "bge-m3", "prompt": text[:500]}
+        req = urllib.request.Request(
+            f"{self.bge_url}/api/embeddings",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                d = json.loads(r.read().decode())
+            emb = d.get("embedding", [])
+            if emb:
+                return emb
+        except Exception:
+            pass
+        # bge 失败 → 回退 tfidf
+        return self._encode_tfidf(text)
+
+    # ── 序列化 ──
+    def export(self) -> dict:
+        return {"mode": self.mode, "dim": self.dim,
+                "vocab": dict(self._vocab), "doc_count": self._doc_count}
+
+    def import_(self, data: dict) -> None:
+        if not data:
+            return
+        self.mode = data.get("mode", self.mode)
+        self.dim = data.get("dim", self.dim)
+        self._vocab = Counter(data.get("vocab", {}))
+        self._doc_count = data.get("doc_count", 0)
+        self._trained = self._doc_count > 0
