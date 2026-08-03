@@ -79,6 +79,8 @@ class ContextualBanditLearner:
         if sid not in self._params:
             self._params[sid] = {
                 "A": [[0.0] * d for _ in range(d)],
+                "A_inv": [[1.0 / self.lam if i == j else 0.0 for j in range(d)]
+                          for i in range(d)],  # (λI)⁻¹
                 "b": [0.0] * d,
                 "n": 0,
             }
@@ -86,31 +88,42 @@ class ContextualBanditLearner:
 
     def observe(self, strategy_id: str, feature: List[float],
                 reward: float) -> None:
-        """记录一次 (特征, 奖励) 反馈。"""
+        """记录一次 (特征, 奖励) 反馈。A⁻¹ 用 Sherman-Morrison 增量更新。"""
         d = len(feature)
         p = self._params_for(strategy_id, d)
         # A += x xᵀ
         for i in range(d):
             for j in range(d):
                 p["A"][i][j] += feature[i] * feature[j]
+        # A_inv 增量更新：A_inv' = A_inv - (A_inv x xᵀ A_inv) / (1 + xᵀ A_inv x)
+        # 计算 t = A_inv · x
+        t = [sum(p["A_inv"][i][j] * feature[j] for j in range(d))
+             for i in range(d)]
+        denom = 1.0 + sum(feature[i] * t[i] for i in range(d))
+        if abs(denom) > 1e-12:
+            scale = 1.0 / denom
+            for i in range(d):
+                row_i = p["A_inv"][i]
+                ti = t[i]
+                for j in range(d):
+                    row_i[j] -= scale * ti * t[j]
         # b += x * reward
         for i in range(d):
             p["b"][i] += feature[i] * reward
         p["n"] += 1
 
     def _score(self, p: dict, feature: List[float]) -> float:
-        """xᵀθ + α√(xᵀ A⁻¹ x)。A⁻¹ 用解线性方程组求。"""
+        """xᵀθ + α√(xᵀ A⁻¹ x)。用缓存的 A_inv，O(d²)。"""
         d = len(feature)
         if p["n"] == 0:
-            # 未尝试：纯探索先验（返回大分，由调用方决定）
             return float("inf")
-        theta = _solve_ridge(p["A"], p["b"], self.lam)
+        # θ = A⁻¹ b（用缓存逆）
+        theta = [sum(p["A_inv"][i][j] * p["b"][j] for j in range(d))
+                 for i in range(d)]
         pred = sum(theta[i] * feature[i] for i in range(d)) if theta else 0.0
-        # 求 v = A⁻¹ x（解 A v = x），然后 √(x·v)
-        try:
-            v = _solve_ridge(p["A"], list(feature), self.lam)
-        except Exception:
-            v = [0.0] * d
+        # 不确定性 √(xᵀ A⁻¹ x)
+        v = [sum(p["A_inv"][i][j] * feature[j] for j in range(d))
+             for i in range(d)]
         unc = math.sqrt(max(0.0, sum(feature[i] * v[i] for i in range(d))))
         return pred + self.alpha * unc
 
@@ -149,9 +162,11 @@ class ContextualBanditLearner:
             if p is None or p["n"] == 0:
                 out[s.name] = 0.0
                 continue
-            theta = _solve_ridge(p["A"], p["b"], self.lam)
+            d = len(feature)
+            theta = [sum(p["A_inv"][i][j] * p["b"][j] for j in range(d))
+                     for i in range(d)]
             out[s.name] = round(
-                sum(theta[i] * feature[i] for i in range(len(feature)))
+                sum(theta[i] * feature[i] for i in range(d))
                 if theta else 0.0, 4)
         return out
 
@@ -167,3 +182,19 @@ class ContextualBanditLearner:
         self.lam = data.get("lam", self.lam)
         self.feature_dim = data.get("feature_dim", self.feature_dim)
         self._params = data.get("params", {})
+        # 旧状态无 A_inv：按当前 A 补算（或退化为对角）
+        for p in self._params.values():
+            if "A_inv" not in p:
+                d = len(p.get("b", []))
+                p["A_inv"] = [[1.0 / self.lam if i == j else 0.0
+                               for j in range(d)] for i in range(d)]
+                # 用 A 重建：对每个策略完整算一次（一次性，可接受）
+                A = p.get("A")
+                if A and d:
+                    # 解 A v = e_i 得到逆矩阵列
+                    cols = []
+                    for i in range(d):
+                        e = [1.0 if j == i else 0.0 for j in range(d)]
+                        cols.append(_solve_ridge(A, e, self.lam))
+                    p["A_inv"] = [[cols[j][i] for j in range(d)]
+                                  for i in range(d)]
