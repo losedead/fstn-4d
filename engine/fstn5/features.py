@@ -12,10 +12,21 @@ fstn5/features.py — 任务/用户特征提取（深度 Bandit 的输入）
 这是"深度上下文 Bandit"的第一层：手写相似度 → 学习表征。
 """
 
+import hashlib
 import math
 import re
 from collections import Counter
 from typing import Dict, List, Optional
+
+
+def _stable_hash(s: str, mod: int) -> int:
+    """确定性 hash（跨进程稳定）。
+
+    PYTHONHASHSEED 让内置 hash(str) 每次进程随机——特征落桶会变，
+    导致语义区分测试结果不稳定（实测：同样代码一次 4/4、一次 2/4）。
+    用 hashlib.md5 保证跨进程/跨重启一致。
+    """
+    return int(hashlib.md5(s.encode("utf-8")).hexdigest(), 16) % mod
 
 
 def _tokenize_cn(text: str) -> List[str]:
@@ -86,14 +97,14 @@ class FeatureExtractor:
         tags = tags or []
         tag_vec = []
         for t in tags:
-            h = abs(hash(t)) % (self.dim // 4)
+            h = _stable_hash(t, self.dim // 4)
             tag_vec.extend([1.0, float(h) / (self.dim // 4)])
         return vec + tag_vec
 
     def _encode_bow(self, text: str) -> List[float]:
         vec = [0.0] * self.dim
         for tok in _tokenize_cn(text):
-            vec[abs(hash(tok)) % self.dim] += 1.0
+            vec[_stable_hash(tok, self.dim)] += 1.0
         return vec
 
     def _encode_tfidf(self, text: str) -> List[float]:
@@ -102,7 +113,7 @@ class FeatureExtractor:
         for tok, c in counts.items():
             df = self._vocab.get(tok, 1)
             idf = math.log(1 + self._doc_count / max(1, df))
-            vec[abs(hash(tok)) % self.dim] += c * idf
+            vec[_stable_hash(tok, self.dim)] += c * idf
         # L2 归一化（余弦友好）
         n = math.sqrt(sum(x * x for x in vec))
         if n > 0:
