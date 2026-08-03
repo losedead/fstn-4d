@@ -326,6 +326,10 @@ class EnhancedEmotionDetector:
                 result["complex_emotion"] = last_complex
         return result
 
+    def _detect_complex(self, vector):
+        """透传 v1 的配方点积复杂情绪检测（fstn_core.generate_reply_guidance 依赖）"""
+        return self.base._detect_complex(vector)
+
     def reset(self):
         self.base.reset()
 
