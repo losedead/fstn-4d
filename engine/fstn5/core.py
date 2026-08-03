@@ -38,7 +38,7 @@ class FSTN5Core:
                  freeze_min_trials: int = 20,
                  generator=None,
                  contextual: bool = True,
-                 feature_mode: str = "tfidf",
+                 feature_mode: str = "auto",
                  feature_dim: int = 64):
         self.state_dir = state_dir
         self.library = PolicyLibrary(decay_days=decay_days,
