@@ -1,4 +1,10 @@
 # FSTN-4D — 斐波那契时空网络·情感记忆引擎
+[![Stars](https://img.shields.io/github/stars/losedead/fstn-4d?style=flat-square)](https://github.com/losedead/fstn-4d)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)]()
+[![Benchmark](https://img.shields.io/badge/benchmark-32%2F32%20pass-brightgreen.svg?style=flat-square)](engine/v4_benchmark.py)
+
+
 
 > **Fibonacci Spacetime Network**：一个带情绪感知、感知-情绪耦合、分层记忆与通感联想的 Agent 外接长期记忆引擎。纯 Python 实现，零训练依赖可跑，文档驱动、基准验证。
 
